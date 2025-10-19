@@ -1,0 +1,21 @@
+{
+  "profit": 2,
+  "monthlyTargetPercent": 72,
+  "chartProgressPercent": 10,
+  "bottomPanel": {
+    "target": 3,
+    "revenue": 1,
+    "today": 2
+  },
+  "customersCount": 1,
+  "customersChangePercent": 11,
+
+  "ordersCount": 52,
+  "ordersChangePercent": -1,
+
+  "newCustomersCount": 4,
+  "newCustomersChangePercent": 2.5,
+
+  "pendingOrdersCount": 7,
+  "pendingOrdersChangePercent": 1.2
+}
