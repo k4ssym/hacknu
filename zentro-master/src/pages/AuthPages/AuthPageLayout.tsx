@@ -28,7 +28,7 @@ export default function AuthLayout({
               <Link to="/" className="block mb-6">
                 <svg width="180" height="48" viewBox="0 0 180 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M30 12L45 36H15L30 12Z" fill="white"/>
-                  <text x="60" y="32" fontFamily="'Inter', sans-serif" fontWeight="bold" fontSize="24" fill="white">ZENTRO</text>
+                  <text x="60" y="32" fontFamily="'Inter', sans-serif" fontWeight="bold" fontSize="24" fill="white">ZAMAN.AI</text>
                 </svg>
               </Link>
               <p className="text-lg text-white/90 mb-6">

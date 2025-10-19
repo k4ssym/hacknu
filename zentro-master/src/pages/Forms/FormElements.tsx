@@ -15,7 +15,7 @@ export default function FormElements() {
   return (
     <div>
       <PageMeta
-        title="ZENTRO ML"
+        title="ZAMAN.AI ML"
         description="This is React.js Form Elements  Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
       />
       <PageBreadcrumb pageTitle="From Elements" />

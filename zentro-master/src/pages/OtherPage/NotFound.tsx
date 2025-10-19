@@ -6,25 +6,25 @@ export default function NotFound() {
   return (
     <>
       <PageMeta
-        title="404 Page Not Found | Zentro Dashboard"
-        description="This page doesn't exist in the Zentro admin dashboard system"
+        title="404 Page Not Found | ZAMAN.AI Dashboard"
+        description="This page doesn't exist in the ZAMAN.AI admin dashboard system"
       />
       <div className="relative flex flex-col items-center justify-center min-h-screen p-6 overflow-hidden z-1 bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
         <GridShape />
         <div className="mx-auto w-full max-w-[300px] text-center sm:max-w-[400px]">
           <div className="mb-6">
             <svg width="300" height="200" viewBox="0 0 300 200" className="mx-auto">
-              {/* Zentro-themed 404 illustration */}
+              {/* ZAMAN.AI-themed 404 illustration */}
               <rect width="300" height="200" fill="transparent" />
               
-              {/* Zentro logo shape */}
+              {/* ZAMAN.AI logo shape */}
               <path 
                 d="M150 50L180 90H120L150 50Z" 
                 fill="#ff671b" 
                 className="animate-bounce"
               />
               
-              {/* 404 text with Zentro colors */}
+              {/* 404 text with ZAMAN.AI colors */}
               <text 
                 x="150" 
                 y="140" 
@@ -82,7 +82,7 @@ export default function NotFound() {
         
         {/* Footer */}
         <p className="absolute text-sm text-center text-gray-500 -translate-x-1/2 bottom-6 left-1/2 dark:text-gray-400">
-          © {new Date().getFullYear()} Zentro Dashboard
+          © {new Date().getFullYear()} ZAMAN.AI Dashboard
         </p>
       </div>
     </>

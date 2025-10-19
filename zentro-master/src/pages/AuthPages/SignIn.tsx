@@ -6,8 +6,8 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="ZENTRO ML"
-        description="ZENTRO ML"
+        title="ZAMAN.AI ML"
+        description="ZAMAN.AI ML"
       />
       <AuthLayout>
         <SignInForm />

@@ -129,7 +129,7 @@ const ExplanationPDF = ({ applicant, shapValues }: ExplanationPDFProps) => {
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>ZENTRO Credit Decision</Text>
+          <Text style={styles.title}>ZAMAN.AI Credit Decision</Text>
           <Text style={styles.subtitle}>Generated on {new Date().toLocaleDateString()}</Text>
         </View>
 
@@ -188,7 +188,7 @@ const ExplanationPDF = ({ applicant, shapValues }: ExplanationPDFProps) => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text>This report was generated automatically by ZENTRO Credit Scoring System</Text>
+          <Text>This report was generated automatically by ZAMAN.AI Credit Scoring System</Text>
           <Text>Confidential - For internal use only</Text>
         </View>
       </Page>

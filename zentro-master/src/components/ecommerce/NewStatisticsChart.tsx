@@ -311,7 +311,7 @@ const shapChartOptions = {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-              ZENTRO Credit Scoring
+              ZAMAN.AI Credit Scoring
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
               Upload applicant data for AI-powered risk assessment with explainability

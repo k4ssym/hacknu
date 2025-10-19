@@ -7,8 +7,8 @@ export default function BarChart() {
   return (
     <div>
       <PageMeta
-        title="ZENTRO ML"
-        description="ZENTRO ML"
+        title="ZAMAN.AI ML"
+        description="ZAMAN.AI ML"
       />
       <PageBreadcrumb pageTitle="Bar Chart" />
       <div className="space-y-6">

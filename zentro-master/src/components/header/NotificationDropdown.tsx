@@ -1,14 +1,43 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Link } from "react-router";
 
-export default function NotificationDropdown() {
+/**
+ * @typedef {{
+ *   id: string;
+ *   title: string;
+ *   body?: string;
+ *   category?: string;       // e.g., "System", "Projects", "Security"
+ *   createdAt: string;       // ISO date string
+ *   createdAtLabel?: string; // optional preformatted label
+ *   read?: boolean;
+ *   avatarUrl?: string;      // optional user/avatar image
+ *   severity?: "info" | "warning" | "critical"; // optional for dot color
+ * }} Notification
+ */
+
+/**
+ * Notification dropdown without mock items.
+ * Pass your real notifications as a prop.
+ */
+export default function NotificationDropdown({
+  notifications = [],
+}: {
+  notifications?: Array<any>; // use your own Notification type if using TS
+}) {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifying, setNotifying] = useState(true);
+
+  const hasUnread = useMemo(
+    () => notifications.some((n: any) => !n?.read),
+    [notifications]
+  );
+
+  // Controls the orange dot until user opens the dropdown.
+  const [notifying, setNotifying] = useState(hasUnread);
 
   function toggleDropdown() {
-    setIsOpen(!isOpen);
+    setIsOpen((v) => !v);
   }
 
   function closeDropdown() {
@@ -20,15 +49,38 @@ export default function NotificationDropdown() {
     setNotifying(false);
   };
 
+  const dotColorFor = (n: any) => {
+    if (n?.severity === "critical") return "#ff671b";
+    if (n?.severity === "warning") return "#ff671b";
+    return "#8db92e"; // "info" / default
+  };
+
+  const formatWhen = (iso?: string, fallback?: string) => {
+    if (fallback) return fallback;
+    if (!iso) return "";
+    try {
+      const d = new Date(iso);
+      return new Intl.DateTimeFormat(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "short",
+      }).format(d);
+    } catch {
+      return iso;
+    }
+  };
+
   return (
     <div className="relative">
       <button
         className="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full dropdown-toggle hover:text-gray-700 h-11 w-11 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
         onClick={handleClick}
+        aria-label="Open notifications"
       >
         <span
           className={`absolute right-0 top-0.5 z-10 h-2 w-2 rounded-full bg-[#ff671b] ${
-            !notifying ? "hidden" : "flex"
+            notifying && hasUnread ? "flex" : "hidden"
           }`}
         >
           <span className="absolute inline-flex w-full h-full bg-[#ff671b] rounded-full opacity-75 animate-ping"></span>
@@ -39,6 +91,7 @@ export default function NotificationDropdown() {
           height="20"
           viewBox="0 0 20 20"
           xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
         >
           <path
             fillRule="evenodd"
@@ -48,6 +101,7 @@ export default function NotificationDropdown() {
           />
         </svg>
       </button>
+
       <Dropdown
         isOpen={isOpen}
         onClose={closeDropdown}
@@ -55,11 +109,12 @@ export default function NotificationDropdown() {
       >
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
           <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-            Zentro Notifications
+            ZAMAN.AI Notifications
           </h5>
           <button
             onClick={toggleDropdown}
             className="text-gray-500 transition dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            aria-label="Close notifications"
           >
             <svg
               className="fill-current"
@@ -67,6 +122,7 @@ export default function NotificationDropdown() {
               height="24"
               viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
             >
               <path
                 fillRule="evenodd"
@@ -77,288 +133,68 @@ export default function NotificationDropdown() {
             </svg>
           </button>
         </div>
+
         <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar">
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-02.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-[#8db92e] dark:border-gray-900"></span>
-              </span>
+          {notifications.length === 0 ? (
+            <li className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+              You’re all caught up. No notifications.
+            </li>
+          ) : (
+            notifications.map((n: any) => (
+              <li key={n.id}>
+                <DropdownItem
+                  onItemClick={closeDropdown}
+                  className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
+                >
+                  <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
+                    {n.avatarUrl ? (
+                      <img
+                        width={40}
+                        height={40}
+                        src={n.avatarUrl}
+                        alt="Avatar"
+                        className="w-full h-full object-cover overflow-hidden rounded-full"
+                      />
+                    ) : (
+                      <span className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 text-gray-600 text-xs">
+                        {n.title?.slice(0, 2)?.toUpperCase() ?? "NZ"}
+                      </span>
+                    )}
+                    <span
+                      className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"
+                      style={{ backgroundColor: dotColorFor(n) }}
+                    />
+                  </span>
 
-              <span className="block">
-                <span className="mb-1.5 block text-theme-sm text-gray-500 dark:text-gray-400 space-x-1">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    New Project Created
-                  </span>
-                  <span>"E-commerce Dashboard" has been created by</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Sarah Johnson
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Projects</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>5 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
+                  <span className="block">
+                    <span className="mb-1.5 block text-theme-sm text-gray-700 dark:text-gray-300">
+                      <span className="font-medium text-gray-900 dark:text-white/90">
+                        {n.title}
+                      </span>
+                      {n.body ? (
+                        <>
+                          <span className="mx-1">—</span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            {n.body}
+                          </span>
+                        </>
+                      ) : null}
+                    </span>
 
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-03.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-[#8db92e] dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Design System Updated
+                    <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
+                      {n.category ? <span>{n.category}</span> : null}
+                      {n.category ? (
+                        <span className="w-1 h-1 bg-gray-400 rounded-full" />
+                      ) : null}
+                      <span>{formatWhen(n.createdAt, n.createdAtLabel)}</span>
+                    </span>
                   </span>
-                  <span>New components added to</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Zentro UI Kit
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Design</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>15 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-04.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-[#ff671b] dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Urgent: Server Maintenance
-                  </span>
-                  <span>Scheduled for tonight at</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    2:00 AM UTC
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>System</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>30 min ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-              to="/"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-05.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-[#ff671b] dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 space-x-1 block text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    API Rate Limit Warning
-                  </span>
-                  <span>Approaching limit for</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Payment Gateway API
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Development</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>1 hr ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-02.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-[#8db92e] dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    New Team Member
-                  </span>
-                  <span>has joined the</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Frontend Team
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>HR</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>2 hrs ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-03.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-[#8db92e] dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Sprint Review Completed
-                  </span>
-                  <span>for</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Q3 Roadmap
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Projects</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>3 hrs ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-04.jpg"
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-[#ff671b] dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Security Alert
-                  </span>
-                  <span>New login detected from</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    New York, US
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>Security</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>5 hrs ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
-
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src="/images/user/user-05.jpg"
-                  alt="User"
-                  className="overflow-hidden rounded-full"
-                />
-                <span className="absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-[#ff671b] dark:border-gray-900"></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Database Backup Failed
-                  </span>
-                  <span>for</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    Customer Data
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>System</span>
-                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                  <span>1 day ago</span>
-                </span>
-              </span>
-            </DropdownItem>
-          </li>
+                </DropdownItem>
+              </li>
+            ))
+          )}
         </ul>
+
         <Link
           to="/notifications"
           className="block px-4 py-2 mt-3 text-sm font-medium text-center text-white bg-[#ff671b] border border-[#ff671b] rounded-lg hover:bg-[#e05c17] dark:border-[#ff671b] dark:bg-[#ff671b] dark:hover:bg-[#e05c17]"

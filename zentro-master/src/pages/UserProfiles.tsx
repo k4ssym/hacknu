@@ -7,8 +7,8 @@ export default function UserProfiles() {
   return (
     <>
       <PageMeta
-        title="ZENTRO ML"
-        description="ZENTRO ML"
+        title="ZAMAN.AI ML"
+        description="ZAMAN.AI ML"
       />
       <PageBreadcrumb pageTitle="Profile" />
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">

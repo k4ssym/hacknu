@@ -14,7 +14,7 @@ export interface SwitchProps {
 }
 
 /**
- * Улучшенный компонент переключателя (Toggle Switch) в стиле ZENTRO ML
+ * Улучшенный компонент переключателя (Toggle Switch) в стиле ZAMAN.AI ML
  */
 export default function Switch({
   checked,

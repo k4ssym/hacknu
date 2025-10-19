@@ -28,7 +28,7 @@ model = None
 def load_model():
     global model
     try:
-        model = joblib.load("ml_zentro/zentro_rf_pipeline.joblib")
+        model = joblib.load("ml_ZENTRO/ZENTRO_rf_pipeline.joblib")
         logger.info(f"✅ Model loaded. Expects {model.n_features_in_} features")
     except Exception as e:
         logger.error(f"❌ Model loading failed: {e}")

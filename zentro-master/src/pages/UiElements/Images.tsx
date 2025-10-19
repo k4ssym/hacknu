@@ -9,8 +9,8 @@ export default function Images() {
   return (
     <>
       <PageMeta
-        title="ZENTRO ML"
-        description="This is ZENTRO ML page"
+        title="ZAMAN.AI ML"
+        description="This is ZAMAN.AI ML page"
       />
       <PageBreadcrumb pageTitle="Images" />
       <div className="space-y-5 sm:space-y-6">

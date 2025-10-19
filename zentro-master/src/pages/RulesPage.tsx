@@ -126,7 +126,7 @@ export default function RiskRulesDashboard() {
   const videoData = {
     title: "Risk Rules Configuration Guide",
     description: "Learn how to set up and manage your risk detection rules",
-    url: "https://www.youtube.com/embed/zentro-demo-video"
+    url: "https://www.youtube.com/embed/ZAMAN.AI-demo-video"
   };
 
   return (

@@ -7,8 +7,8 @@ export default function LineChart() {
   return (
     <>
       <PageMeta
-        title="ZENTRO ML"
-        description="ZENTRO ML"
+        title="ZAMAN.AI ML"
+        description="ZAMAN.AI ML"
       />
       <PageBreadcrumb pageTitle="Line Chart" />
       <div className="space-y-6">

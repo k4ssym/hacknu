@@ -14,301 +14,24 @@ import nodemailer from "nodemailer";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { fileURLToPath } from 'url';
-// Add this to your server.js file after the other imports
-import { z } from 'zod';
-
-// =============== AI RECOMMENDATIONS ENDPOINT ===============
-const AIRecommendationSchema = z.object({
-  goalType: z.enum(['car', 'home', 'education', 'travel', 'medical', 'big_purchase', 'savings', 'invest']),
-  targetAmount: z.number().min(1000),
-  termMonths: z.number().min(1).max(240),
-  downPayment: z.number().min(0),
-  netIncomeMonthly: z.number().min(10000),
-  existingDebtMonthly: z.number().min(0),
-  employmentYears: z.number().min(0),
-  shariaPreference: z.boolean().default(true),
-  creditScore: z.number().min(300).max(850).optional(),
-  expenses: z.object({
-    housing: z.number().min(0),
-    transport: z.number().min(0),
-    food: z.number().min(0),
-    shopping: z.number().min(0),
-    other: z.number().min(0)
-  })
-});
-
-const AIResponseSchema = z.object({
-  suggested_products: z.array(z.object({
-    name: z.string(),
-    type: z.enum(['loan', 'savings']),
-    eligibility: z.boolean(),
-    reason: z.string().optional(),
-    monthly_payment: z.number().optional(),
-    required_monthly_savings: z.number().optional(),
-    total_cost: z.number().optional(),
-    yield_estimate: z.number().optional(),
-    constraints: z.object({
-      min_amount: z.number(),
-      max_amount: z.number(),
-      min_term: z.number(),
-      max_term: z.number()
-    })
-  })),
-  affordability_analysis: z.object({
-    current_dti: z.number(),
-    projected_dti: z.number(),
-    affordable: z.boolean(),
-    max_affordable_amount: z.number(),
-    risk_level: z.enum(['low', 'medium', 'high'])
-  }),
-  recommendations: z.array(z.string().max(100)),
-  behavioral_tips: z.array(z.string().max(100)),
-  calculation_details: z.object({
-    principal_after_down: z.number(),
-    total_markup: z.number().optional(),
-    monthly_yield_rate: z.number().optional(),
-    required_monthly_deposit: z.number().optional()
-  })
-});
-
-// =============== REAL AI RECOMMENDATIONS ===============
-// =============== REAL AI RECOMMENDATIONS ===============
-app.post('/api/ai/recommendations', async (req, res) => {
-  try {
-    const {
-      goalType,
-      targetAmount,
-      termMonths,
-      downPayment,
-      netIncomeMonthly,
-      existingDebtMonthly,
-      employmentYears,
-      shariaPreference,
-      expenses
-    } = req.body;
-
-    console.log('🔮 AI Request Received:', {
-      goalType,
-      targetAmount,
-      termMonths,
-      downPayment,
-      netIncomeMonthly,
-      existingDebtMonthly,
-      employmentYears
-    });
-
-    // Calculate key metrics for AI context
-    const totalExpenses = Object.values(expenses).reduce((a, b) => a + b, 0);
-    const disposableIncome = netIncomeMonthly - totalExpenses - existingDebtMonthly;
-    const principalAfterDown = targetAmount - downPayment;
-    const monthlyPaymentNeeded = principalAfterDown / termMonths;
-    const downPaymentPercent = (downPayment / targetAmount) * 100;
-    const currentDTI = (existingDebtMonthly / netIncomeMonthly) * 100;
-    const projectedDTI = ((existingDebtMonthly + monthlyPaymentNeeded) / netIncomeMonthly) * 100;
-
-    // Prepare AI prompt with specific numbers
-    const aiPrompt = `As Zaman Bank's Islamic financial advisor, analyze this client scenario and provide EXACTLY 3 specific recommendations and 3 behavioral tips in JSON format:
-
-CLIENT PROFILE:
-- Goal: ${goalType} financing
-- Target Amount: ${targetAmount.toLocaleString()} KZT
-- Term: ${termMonths} months
-- Down Payment: ${downPayment.toLocaleString()} KZT (${downPaymentPercent.toFixed(1)}%)
-- Monthly Income: ${netIncomeMonthly.toLocaleString()} KZT
-- Existing Debt: ${existingDebtMonthly.toLocaleString()} KZT/month
-- Employment: ${employmentYears} years
-- Disposable Income: ${Math.round(disposableIncome).toLocaleString()} KZT/month
-- Current DTI: ${currentDTI.toFixed(1)}%
-- Projected DTI: ${projectedDTI.toFixed(1)}%
-
-ZAMAN ISLAMIC PRODUCTS:
-- BNPL: 10k–300k KZT, 1–12 months
-- Islamic Financing: 100k–5m KZT, 3–60 months  
-- Islamic Mortgage: 3m–75m KZT, 12–240 months
-- Kopilka Savings: 1k–20m KZT, 1–12 months, up to 18% yield
-- Wakala Investment: ≥50k KZT, 3–36 months, up to 20% yield
-
-Provide SPECIFIC, ACTIONABLE advice based on these exact numbers. Focus on Islamic finance principles.
-
-Respond with EXACTLY this JSON format:
-{
-  "recommendations": ["specific rec 1", "specific rec 2", "specific rec 3"],
-  "behavioralTips": ["specific tip 1", "specific tip 2", "specific tip 3"]
-}`;
-
-    console.log('🚀 Calling RapidAPI GPT-4o Mini...');
-
-    try {
-      // Call RapidAPI GPT-4o Mini
-      const aiResponse = await axios.post(
-        'https://gpt-4o-mini.p.rapidapi.com/chat/completions',
-        {
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: aiPrompt }],
-          temperature: 0.7,
-          max_tokens: 800,
-          response_format: { type: "json_object" }
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-rapidapi-host': 'gpt-4o-mini.p.rapidapi.com',
-            'x-rapidapi-key': process.env.RAPIDAPI_KEY || '9a0f172768mshc46725afc0019dfp172bddjsn73455f16dc83'
-          },
-          timeout: 30000
-        }
-      );
-
-      console.log('✅ RapidAPI Response Status:', aiResponse.status);
-      console.log('✅ RapidAPI Response Data:', aiResponse.data);
-
-      if (!aiResponse.data.choices || !aiResponse.data.choices[0]) {
-        throw new Error('Invalid response structure from RapidAPI');
-      }
-
-      const aiContent = aiResponse.data.choices[0].message.content;
-      console.log('📄 AI Raw Content:', aiContent);
-
-      let parsedResponse;
-      try {
-        parsedResponse = JSON.parse(aiContent);
-        console.log('🔍 Parsed AI Response:', parsedResponse);
-      } catch (parseError) {
-        console.error('❌ JSON Parse Error:', parseError);
-        console.error('📄 Problematic content:', aiContent);
-        throw new Error('AI returned invalid JSON format');
-      }
-
-      // Validate response structure
-      if (!parsedResponse.recommendations || !Array.isArray(parsedResponse.recommendations)) {
-        console.error('❌ Missing recommendations array');
-        throw new Error('AI response missing recommendations');
-      }
-
-      if (!parsedResponse.behavioralTips || !Array.isArray(parsedResponse.behavioralTips)) {
-        console.error('❌ Missing behavioralTips array');
-        throw new Error('AI response missing behavioral tips');
-      }
-
-      console.log('🎯 Final AI Recommendations:', parsedResponse.recommendations);
-      console.log('💡 Final Behavioral Tips:', parsedResponse.behavioralTips);
-
-      res.json({
-        success: true,
-        recommendations: parsedResponse.recommendations.slice(0, 3),
-        behavioralTips: parsedResponse.behavioralTips.slice(0, 3),
-        ai_generated: true
-      });
-
-    } catch (aiError) {
-      console.error('❌ RapidAPI Error:', aiError.message);
-      console.error('❌ RapidAPI Response:', aiError.response?.data);
-      console.error('❌ RapidAPI Status:', aiError.response?.status);
-      
-      // Don't use fallback - throw error to see what's wrong
-      throw new Error(`RapidAPI failed: ${aiError.message}`);
-    }
-
-  } catch (error) {
-    console.error('💥 AI recommendation endpoint error:', error);
-    
-    // Return error instead of fallback to debug
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      details: 'AI service failed - check backend logs'
-    });
-  }
-});
-// Fallback calculation when AI is unavailable
-async function calculateFallbackRecommendations(data, currentDTI) {
-  const principalAfterDown = data.targetAmount - data.downPayment;
-  const isLoan = ['car', 'home', 'education', 'medical', 'big_purchase'].includes(data.goalType);
-  
-  // Product matching logic
-  const suggestedProducts = [];
-  
-  if (data.goalType === 'car' && data.targetAmount <= 5000000) {
-    suggestedProducts.push({
-      name: "Islamic Financing (Consumer)",
-      type: "loan",
-      eligibility: true,
-      monthly_payment: Math.round((principalAfterDown + 6000) / data.termMonths),
-      total_cost: principalAfterDown + 6000,
-      constraints: { min_amount: 100000, max_amount: 5000000, min_term: 3, max_term: 60 }
-    });
-  }
-  
-  if (data.goalType === 'savings') {
-    const monthlyYield = 0.18 / 12;
-    const requiredMonthly = Math.round(
-      data.targetAmount / ((Math.pow(1 + monthlyYield, data.termMonths) - 1) / monthlyYield)
-    );
-    
-    suggestedProducts.push({
-      name: "Kopilka Savings",
-      type: "savings", 
-      eligibility: true,
-      required_monthly_savings: requiredMonthly,
-      yield_estimate: 18,
-      constraints: { min_amount: 1000, max_amount: 20000000, min_term: 1, max_term: 12 }
-    });
-  }
-
-  // Calculate affordability
-  const totalMonthlyDebt = data.existingDebtMonthly + 
-    (isLoan ? suggestedProducts[0]?.monthly_payment || 0 : 0);
-  const projectedDTI = totalMonthlyDebt / data.netIncomeMonthly;
-
-  return {
-    suggested_products: suggestedProducts,
-    affordability_analysis: {
-      current_dti: currentDTI,
-      projected_dti: projectedDTI,
-      affordable: projectedDTI <= 0.5,
-      max_affordable_amount: Math.round((data.netIncomeMonthly * 0.5 - data.existingDebtMonthly) * data.termMonths),
-      risk_level: projectedDTI > 0.5 ? 'high' : projectedDTI > 0.35 ? 'medium' : 'low'
-    },
-    recommendations: [
-      `Consider increasing down payment by ${Math.round(data.targetAmount * 0.1)} KZT to reduce monthly burden`,
-      `Extend term to ${data.termMonths + 12} months for lower monthly payments`,
-      `Reduce shopping expenses by 15% to improve cash flow`
-    ],
-    behavioral_tips: [
-      "Try a no-spend weekend for financial awareness",
-      "Take a 20-minute walk instead of impulse shopping", 
-      "Practice mindful spending with 24-hour purchase delays"
-    ],
-    calculation_details: {
-      principal_after_down: principalAfterDown,
-      total_markup: isLoan ? 6000 : undefined,
-      monthly_yield_rate: !isLoan ? 0.18/12 : undefined,
-      required_monthly_deposit: !isLoan ? suggestedProducts[0]?.required_monthly_savings : undefined
-    }
+// Helper function for goal labels
+function getGoalLabel(goalType) {
+  const goalLabels = {
+    'home': 'Покупка жилья',
+    'car': 'Покупка автомобиля',
+    'education': 'Образование',
+    'travel': 'Путешествие',
+    'medical': 'Медицинские расходы',
+    'big_purchase': 'Крупная покупка',
+    'savings': 'Накопления',
+    'invest': 'Инвестиции',
+    'business': 'Развитие бизнеса',
+    'hajj': 'Паломничество Хадж',
+    'gold': 'Инвестиции в золото',
+    'real_estate_invest': 'Инвестиции в недвижимость'
   };
+  return goalLabels[goalType] || goalType;
 }
-// =============== AI RECOMMENDATIONS ENDPOINT ===============
-
-// Create table for AI recommendations logging (run this once)
-app.get('/api/ai/setup-table', async (req, res) => {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ai_recommendations (
-        id SERIAL PRIMARY KEY,
-        goal_type VARCHAR(50) NOT NULL,
-        target_amount DECIMAL(15,2) NOT NULL,
-        term_months INTEGER NOT NULL,
-        net_income DECIMAL(15,2) NOT NULL,
-        ai_response JSONB NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-    res.json({ success: true, message: "AI recommendations table ready" });
-  } catch (error) {
-    console.error('Table creation error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 // Create __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -335,7 +58,259 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime()
   });
 });
+// =============== ML CREDIT SCORING ENDPOINT ===============
+app.post("/api/ml/score-applicants", async (req, res) => {
+  try {
+    const { applicants } = req.body;
+    console.log(`📊 Scoring ${applicants.length} applicants with ML model...`);
 
+    // Prepare features for ML model
+    const features = applicants.map(applicant => [
+      applicant.age,
+      applicant.income, 
+      applicant.loan_amount,
+      applicant.credit_history,
+      applicant.employment_length,
+      applicant.debt_to_income
+    ]);
+
+    console.log('🚀 Sending to ML service...');
+    
+    // Call Python ML service
+    const mlResponse = await axios.post('http://localhost:8000/predict', {
+      features: features
+    }, {
+      timeout: 30000
+    });
+
+    console.log('✅ ML scoring response:', mlResponse.data);
+
+    if (mlResponse.data.status !== 'success') {
+      throw new Error(mlResponse.data.message);
+    }
+
+    // Combine original data with ML predictions
+    const scoredApplicants = applicants.map((applicant, index) => ({
+      ...applicant,
+      ...mlResponse.data.predictions[index],
+      score: parseFloat(mlResponse.data.predictions[index].score.toFixed(3))
+    }));
+
+    res.json({
+      success: true,
+      scored_applicants: scoredApplicants,
+      model_version: mlResponse.data.model_version || 'unknown',
+      processing_time: 0.5
+    });
+
+  } catch (error) {
+    console.error('❌ ML scoring error:', error.response?.data || error.message);
+    
+    // Fallback to formula-based scoring
+    console.log('🔄 Using fallback formula scoring');
+    const scoredApplicants = applicants.map(applicant => {
+      const score = calculateCreditScore(applicant);
+      const risk_level = determineRiskLevel(score);
+      return {
+        ...applicant,
+        score: parseFloat(score.toFixed(3)),
+        risk_level,
+        decision: getDecision(risk_level),
+        probability: score,
+        note: "Formula-based scoring (ML service unavailable)"
+      };
+    });
+
+    res.json({
+      success: true,
+      scored_applicants: scoredApplicants,
+      model_version: "fallback-formula",
+      note: "Using formula-based scoring as fallback"
+    });
+  }
+});
+
+// Helper functions
+function calculateCreditScore(applicant) {
+  const factors = {
+    income: Math.min(1, applicant.income / 150000) * 0.3,
+    creditHistory: (applicant.credit_history - 300) / 550 * 0.3,
+    employment: Math.min(1, applicant.employment_length / 10) * 0.2,
+    age: Math.min(1, (applicant.age - 18) / 50) * 0.1,
+    debtRatio: (1 - Math.min(1, applicant.debt_to_income / 0.5)) * 0.1
+  };
+
+  let score = Object.values(factors).reduce((sum, val) => sum + val, 0);
+  
+  const loanToIncome = applicant.loan_amount / applicant.income;
+  if (loanToIncome > 0.5) score *= 0.8;
+  if (loanToIncome > 1) score *= 0.7;
+  
+  return Math.min(1, Math.max(0, score));
+}
+
+function determineRiskLevel(score) {
+  if (score >= 0.7) return 'low';
+  if (score >= 0.4) return 'medium';
+  return 'high';
+}
+
+function getDecision(riskLevel) {
+  switch(riskLevel) {
+    case 'low': return 'Approve';
+    case 'medium': return 'Review';
+    case 'high': return 'Reject';
+  }
+}
+// =============== TEST ML CONNECTION ===============
+app.get("/api/ml/test-connection", async (req, res) => {
+  try {
+    console.log('🧪 Testing ML service connection...');
+    
+    // Test health endpoint
+    const healthResponse = await axios.get('http://localhost:8000/health', {
+      timeout: 5000
+    });
+    
+    console.log('✅ ML service health:', healthResponse.data);
+    
+    // Test prediction with sample data
+    const sampleFeatures = [
+      [35, 75000, 15000, 720, 5, 0.25],  // Good applicant
+      [25, 35000, 50000, 580, 1, 0.65]   // Risky applicant
+    ];
+    
+    const predictResponse = await axios.post('http://localhost:8000/predict', {
+      features: sampleFeatures
+    }, {
+      timeout: 10000
+    });
+    
+    console.log('✅ ML prediction test successful:', predictResponse.data);
+    
+    res.json({
+      success: true,
+      health: healthResponse.data,
+      prediction_test: predictResponse.data,
+      message: "ML service is working correctly"
+    });
+    
+  } catch (error) {
+    console.error('❌ ML service test failed:', error.message);
+    res.status(500).json({
+      success: false,
+      error: "ML service connection failed",
+      details: error.message,
+      message: "Check if ML service is running on port 8000"
+    });
+  }
+});
+// Keep your helper functions the same...
+function calculateCreditScore(applicant) {
+  const factors = {
+    income: Math.min(1, applicant.income / 150000) * 0.3,
+    creditHistory: (applicant.credit_history - 300) / 550 * 0.3,
+    employment: Math.min(1, applicant.employment_length / 10) * 0.2,
+    age: Math.min(1, (applicant.age - 18) / 50) * 0.1,
+    debtRatio: (1 - Math.min(1, applicant.debt_to_income / 0.5)) * 0.1
+  };
+
+  let score = Object.values(factors).reduce((sum, val) => sum + val, 0);
+  
+  const loanToIncome = applicant.loan_amount / applicant.income;
+  if (loanToIncome > 0.5) score *= 0.8;
+  if (loanToIncome > 1) score *= 0.7;
+  
+  return Math.min(1, Math.max(0, score));
+}
+
+function determineRiskLevel(score) {
+  if (score >= 0.7) return 'low';
+  if (score >= 0.4) return 'medium';
+  return 'high';
+}
+
+function getDecision(riskLevel) {
+  switch(riskLevel) {
+    case 'low': return 'Approve';
+    case 'medium': return 'Review';
+    case 'high': return 'Reject';
+  }
+}
+// =============== TEST ML CONNECTION ===============
+app.get("/api/ml/test", async (req, res) => {
+  try {
+    console.log('🧪 Testing ML service connection...');
+    
+    const testResponse = await axios.get('http://localhost:8000/health', {
+      timeout: 5000
+    });
+    
+    console.log('✅ ML service health:', testResponse.data);
+    
+    // Test with sample data
+    const sampleFeatures = [
+      [35, 75000, 15000, 720, 5, 0.25],  // Good applicant
+      [25, 35000, 50000, 580, 1, 0.65]   // Risky applicant
+    ];
+    
+    const predictResponse = await axios.post('http://localhost:8000/predict', {
+      features: sampleFeatures
+    }, {
+      timeout: 10000
+    });
+    
+    console.log('✅ ML prediction test successful');
+    
+    res.json({
+      success: true,
+      health: testResponse.data,
+      prediction_test: predictResponse.data,
+      message: "ML service is working correctly"
+    });
+    
+  } catch (error) {
+    console.error('❌ ML service test failed:', error.message);
+    res.status(500).json({
+      success: false,
+      error: "ML service connection failed",
+      details: error.message,
+      message: "Check if ML service is running on port 8000"
+    });
+  }
+});
+// Helper functions for fallback scoring
+function calculateCreditScore(applicant) {
+  const factors = {
+    income: Math.min(1, applicant.income / 150000) * 0.3,
+    creditHistory: (applicant.credit_history - 300) / 550 * 0.3,
+    employment: Math.min(1, applicant.employment_length / 10) * 0.2,
+    age: Math.min(1, (applicant.age - 18) / 50) * 0.1,
+    debtRatio: (1 - Math.min(1, applicant.debt_to_income / 0.5)) * 0.1
+  };
+
+  let score = Object.values(factors).reduce((sum, val) => sum + val, 0);
+  
+  const loanToIncome = applicant.loan_amount / applicant.income;
+  if (loanToIncome > 0.5) score *= 0.8;
+  if (loanToIncome > 1) score *= 0.7;
+  
+  return Math.min(1, Math.max(0, score));
+}
+
+function determineRiskLevel(score) {
+  if (score >= 0.7) return 'low';
+  if (score >= 0.4) return 'medium';
+  return 'high';
+}
+
+function getDecision(riskLevel) {
+  switch(riskLevel) {
+    case 'low': return 'Approve';
+    case 'medium': return 'Review';
+    case 'high': return 'Reject';
+  }
+}
 // Batch Scoring Endpoint (with Python ML integration)
 app.post("/api/batch-score", upload.single("file"), async (req, res) => {
   if (!req.file) {
@@ -387,6 +362,241 @@ app.post("/api/batch-score", upload.single("file"), async (req, res) => {
     });
   }
 });
+
+// Get AI recommendations (No database)
+// =============== AI RECOMMENDATION ENDPOINT ===============
+// =============== WORKING AI RECOMMENDATION ENDPOINT ===============
+app.post("/api/ai/recommendations", async (req, res) => {
+  try {
+    const applicant = req.body;
+    console.log('📥 Received applicant data:', applicant);
+
+    // Create a detailed context from applicant data
+    const context = `
+Финансовый профиль клиента:
+- Цель: ${getGoalLabel(applicant.goalType)}
+- Целевая сумма: ${applicant.targetAmount?.toLocaleString()} KZT
+- Срок: ${applicant.termMonths} месяцев
+- Ежемесячный доход: ${applicant.netIncomeMonthly?.toLocaleString()} KZT
+- Существующие долги: ${applicant.existingDebtMonthly?.toLocaleString()} KZT
+- Первоначальный взнос: ${applicant.downPayment?.toLocaleString()} KZT
+- Ежемесячные расходы: ${Object.values(applicant.expenses || {}).reduce((a, b) => a + b, 0)?.toLocaleString()} KZT
+- Стаж работы: ${applicant.employmentYears} лет
+- Кредитный рейтинг: ${applicant.creditScore || 'не указан'}
+- Лимит ежемесячного платежа: ${applicant.monthlyPaymentLimit?.toLocaleString()} KZT
+- Предпочтение исламских продуктов: ${applicant.shariaPreference ? 'Да' : 'Нет'}
+    `;
+
+// Update the AI system prompt in your server.js
+const messages = [
+  {
+    role: "system",
+    content: `Ты персональный финансовый советник исламского банка Zaman. Анализируй финансовую ситуацию клиента и давай ТОЧНЫЕ, ПЕРСОНАЛИЗИРОВАННЫЕ рекомендации.
+
+ОСОБЕННОСТИ АНАЛИЗА:
+1. Учитывай ВСЕ данные клиента: цель, сумму, срок, доходы, расходы, долги
+2. Давай КОНКРЕТНЫЕ цифры и сроки когда возможно
+3. Предлагай РЕАЛЬНЫЕ действия, которые клиент может сделать сразу
+4. Учитывай исламские принципы финансирования
+5. Форматируй ответ как чистый текст БЕЗ markdown, звездочек, жирного шрифта
+
+ФОРМАТ ОТВЕТА:
+- Каждая рекомендация должна быть отдельным полным предложением
+- Начинай с actionable совета
+- Максимально персонализируй под цифры клиента
+- 4 самых важных рекомендации
+
+Отвечай ТОЛЬКО на русском языке.`
+  },
+  {
+    role: "user", 
+    content: `ПРОФИЛЬ КЛИЕНТА:
+Цель: ${getGoalLabel(applicant.goalType)}
+Требуемая сумма: ${applicant.targetAmount?.toLocaleString()} KZT
+Срок: ${applicant.termMonths} месяцев
+Ежемесячный доход: ${applicant.netIncomeMonthly?.toLocaleString()} KZT
+Существующие платежи: ${applicant.existingDebtMonthly?.toLocaleString()} KZT/мес
+Первоначальный взнос: ${applicant.downPayment?.toLocaleString()} KZT
+Общие ежемесячные расходы: ${Object.values(applicant.expenses || {}).reduce((a, b) => a + b, 0)?.toLocaleString()} KZT
+Стаж работы: ${applicant.employmentYears} лет
+Предпочтение исламских продуктов: ${applicant.shariaPreference ? 'Да' : 'Нет'}
+
+Дай 4 самых важных финансовых рекомендации для этого клиента.`
+  }
+];
+
+    console.log('🚀 Calling RapidAPI GPT-4o-mini...');
+    
+    // Call RapidAPI GPT-4o-mini with YOUR API KEY
+    const response = await axios({
+      method: 'POST',
+      url: 'https://gpt-4o-mini.p.rapidapi.com/chat/completions',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-rapidapi-host': 'gpt-4o-mini.p.rapidapi.com',
+        'x-rapidapi-key': '9a0f172768mshc46725afc0019dfp172bddjsn73455f16dc83' // Your actual key
+      },
+      data: {
+        model: "gpt-4o-mini",
+        messages: messages,
+        max_tokens: 1000,
+        temperature: 0.7
+      },
+      timeout: 30000
+    });
+
+    console.log('✅ RapidAPI response received successfully');
+    const aiResponse = response.data.choices[0].message.content;
+    console.log('🤖 Raw AI response:', aiResponse);
+
+    // Parse the response into clean recommendations
+    const recommendations = parseAIResponse(aiResponse);
+    console.log('📋 Parsed recommendations:', recommendations);
+
+    res.json({
+      success: true,
+      recommendations: recommendations,
+      rawResponse: aiResponse,
+      generated_at: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ AI recommendation error:', error.response?.data || error.message);
+    
+    // Detailed error logging
+    if (error.response) {
+      console.error('API Response error:', error.response.status, error.response.data);
+    } else if (error.request) {
+      console.error('No response received:', error.request);
+    } else {
+      console.error('Request setup error:', error.message);
+    }
+
+    // Contextual fallback recommendations
+    const fallbackRecommendations = getFallbackRecommendations(applicant?.goalType);
+    
+    res.json({
+      success: true,
+      recommendations: fallbackRecommendations,
+      generated_at: new Date().toISOString(),
+      note: "Используются базовые рекомендации"
+    });
+  }
+});
+
+// Helper function to parse AI response
+function parseAIResponse(response) {
+  try {
+    // Split by common bullet points and numbering
+    const lines = response.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    const recommendations = [];
+    
+    for (const line of lines) {
+      // Match numbered points (1., 2., 3., etc.)
+      if (line.match(/^\d+\./) || line.includes('•') || line.includes('-') || 
+          line.toLowerCase().includes('рекоменд') || line.toLowerCase().includes('совет')) {
+        
+        // Clean the line
+        let cleanLine = line
+          .replace(/^[•\-\d\.\s]+/, '') // Remove bullets/numbers
+          .replace(/^[👆📌🎯💡🔥⭐️🤔]\s*/, '') // Remove emojis
+          .trim();
+
+        // Only include if it's substantial content
+        if (cleanLine.length > 20 && cleanLine.length < 200) {
+          recommendations.push(cleanLine);
+        }
+      }
+      
+      // Stop after 4 good recommendations
+      if (recommendations.length >= 4) break;
+    }
+
+    // If we didn't get enough, take the first 4 non-empty lines
+    if (recommendations.length < 4) {
+      const additional = lines
+        .filter(line => line.length > 20 && line.length < 200)
+        .slice(0, 4 - recommendations.length);
+      recommendations.push(...additional);
+    }
+
+    return recommendations.length > 0 ? recommendations.slice(0, 4) : getFallbackRecommendations();
+    
+  } catch (parseError) {
+    console.error('Error parsing AI response:', parseError);
+    return getFallbackRecommendations();
+  }
+}
+
+// Helper function to get goal labels in Russian
+function getGoalLabel(goalType) {
+  const goalLabels = {
+    'home': 'Покупка жилья',
+    'education': 'Образование', 
+    'travel': 'Путешествие',
+    'medical': 'Медицина',
+    'big_purchase': 'Крупная покупка',
+    'savings': 'Накопления',
+    'invest': 'Инвестиции',
+    'car': 'Покупка автомобиля'
+  };
+  return goalLabels[goalType] || goalType;
+}
+
+// Helper function for fallback recommendations
+function getFallbackRecommendations(goalType = 'home') {
+  const fallbacks = {
+    home: [
+      "Увеличьте первоначальный взнос для снижения ежемесячных платежей по ипотеке",
+      "Изучите программы государственной поддержки для приобретения жилья",
+      "Рассмотрите варианты вторичного жилья для экономии бюджета",
+      "Создайте план накопления на первоначальный взнос с автоматическими отчислениями"
+    ],
+    education: [
+      "Исследуйте возможности получения образовательных грантов и стипендий",
+      "Рассмотрите вариант частичной оплаты обучения с поэтапным финансированием",
+      "Составьте план совмещения работы и обучения для самофинансирования",
+      "Изучите программы корпоративного обучения у вашего работодателя"
+    ],
+    travel: [
+      "Планируйте путешествие в низкий сезон для значительной экономии",
+      "Создайте отдельный накопительный счет для travel-целей",
+      "Исследуйте варианты туров с рассрочкой платежа",
+      "Рассмотрите возможность путешествий по внутренним направлениям"
+    ],
+    medical: [
+      "Изучите программы добровольного медицинского страхования",
+      "Рассмотрите возможность лечения в государственных клиниках",
+      "Исследуйте варианты рассрочки на медицинские услуги",
+      "Создайте медицинский резервный фонд на случай непредвиденных расходов"
+    ],
+    big_purchase: [
+      "Сравните цены в разных магазинах и онлайн-платформах",
+      "Дождитесь сезонных распродаж для значительной экономии",
+      "Рассмотрите вариант покупки б/у товара в хорошем состоянии",
+      "Используйте cashback-программы и кешбэк-сервисы при покупке"
+    ],
+    savings: [
+      "Автоматизируйте ежемесячные отчисления на накопительный счет",
+      "Диверсифицируйте накопления между разными финансовыми инструментами",
+      "Установите реалистичные промежуточные цели для поддержания мотивации",
+      "Регулярно пересматривайте и оптимизируйте свой бюджет"
+    ],
+    invest: [
+      "Начните с консервативных инструментов перед переходом к рискованным",
+      "Диверсифицируйте портфель между разными классами активов",
+      "Установите четкие финансовые цели и временные горизонты",
+      "Регулярно мониторьте и rebalance-ируйте инвестиционный портфель"
+    ]
+  };
+
+  return fallbacks[goalType] || fallbacks.home;
+}
+
+// Get predefined business recommendations
 
 // File Download Endpoint
 app.get("/api/results/:filename", (req, res) => {
